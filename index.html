@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>智能彩票数据统计分析系统</title>
+<style>
+  :root { --primary: #d32f2f; --secondary: #1565c0; }
+  body { font-family: system-ui, sans-serif; background: #f4f6f8; margin: 0; padding: 20px; color: #222; }
+  .box { max-width: 650px; margin: 0 auto; background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+  .tabs { display: flex; margin-bottom: 20px; border-bottom: 2px solid #eee; }
+  .tab { flex: 1; text-align: center; padding: 15px 0; font-size: 18px; font-weight: bold; cursor: pointer; color: #666; transition: 0.3s; }
+  .tab.active { color: #e65100; border-bottom: 3px solid #e65100; }
+  .content { display: none; }
+  .content.active { display: block; }
+  
+  button.btn-run { background: #e65100; color: #fff; border: 0; border-radius: 8px; padding: 15px; font-size: 18px; cursor: pointer; width: 100%; font-weight: bold; box-shadow: 0 4px 10px rgba(230,81,0,.3); margin-bottom: 10px; }
+  button.btn-run:disabled { background: #aaa; box-shadow: none; }
+  
+  /* 追加投注区 */
+  .switch-box { display: flex; justify-content: center; margin-bottom: 15px; font-size: 14px; font-weight: bold; color: #d32f2f; background: #ffebee; padding: 10px; border-radius: 6px; border: 1px solid #ffcdd2; }
+  .switch-box label { display: flex; align-items: center; cursor: pointer; }
+  .switch-box input { width: 18px; height: 18px; margin-right: 6px; cursor: pointer; }
+  
+  /* 手动修正框 */
+  .manual-box { background: #f0f8ff; border: 1px dashed #4a90e2; border-radius: 8px; padding: 10px; margin-bottom: 15px; display: flex; gap: 8px; }
+  .manual-box input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
+  .manual-box button { background: #4a90e2; color: #fff; border: none; border-radius: 6px; padding: 0 15px; font-weight: bold; cursor: pointer; }
+
+  /* 自定义复式区 */
+  .custom-box { background: #f3e5f5; border: 1px solid #ce93d8; border-radius: 8px; padding: 15px; margin-top: 20px; }
+  .custom-title { font-weight: bold; color: #6a1b9a; margin-bottom: 10px; font-size: 16px; }
+  .custom-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  .custom-controls select { padding: 8px; border-radius: 4px; border: 1px solid #ba68c8; font-size: 15px; font-weight: bold; color: #4a148c; }
+  .custom-controls button { background: #8e24aa; color: white; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; }
+  .custom-result { display: none; margin-top: 15px; background: #fff; padding: 12px; border-radius: 8px; border: 1px solid #e1bee7; }
+  .custom-result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+
+  .status { margin: 15px 0; color: #555; text-align: center; font-weight: bold; font-size: 14px; line-height: 1.5; }
+  .result-card { background: #fff8e1; border-left: 4px solid #ffb300; padding: 15px; border-radius: 8px; margin-top: 15px; display: none; }
+  .rule-tip { font-size: 12px; color: #666; margin-top: 5px; background: #fff; padding: 10px; border-radius: 4px; line-height: 1.6; }
+  .rule-tip span { color: #e65100; font-weight: bold; }
+  
+  /* 历史战绩区 */
+  .score-board { display: flex; justify-content: space-between; align-items: center; background: #e8f5e9; border: 1px solid #4caf50; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+  .score-board-left { font-size: 16px; font-weight: bold; color: #1b5e20; }
+  .score-total { font-size: 22px; color: #d32f2f; font-weight: bold; }
+  .history-btn { background: #fff; color: #2e7d32; border: 1px solid #4caf50; padding: 6px 12px; border-radius: 4px; font-size: 13px; cursor: pointer; font-weight: bold; }
+  .history-panel { display: none; background: #f1f8e9; border: 1px solid #c8e6c9; border-radius: 8px; padding: 10px; margin-bottom: 15px; max-height: 250px; overflow-y: auto; }
+  .history-item { border-bottom: 1px dashed #c8e6c9; padding: 8px 0; font-size: 13px; color: #333; }
+  .history-item:last-child { border-bottom: none; }
+  .history-item span.highlight { color: #d32f2f; font-weight: bold; }
+
+  .latest-info { background: #fff3e0; border: 1px solid #ffcc80; padding: 12px; border-radius: 6px; margin-bottom: 12px; font-size: 14px; line-height: 1.8; color: #333; }
+  .latest-info b { color: #e65100; font-size: 15px; }
+
+  .period-title { font-size: 15px; font-weight: bold; color: #1565c0; margin: 15px 0 10px 0; border-left: 3px solid #1565c0; padding-left: 8px; }
+  
+  .ticket { margin-top: 12px; padding-bottom: 12px; border-bottom: 1px dashed #ccc; }
+  .ticket:last-child { border-bottom: none; }
+  .ticket-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+  .ticket-title { font-weight: bold; color: #333; }
+  
+  .ticket-cold { border: 2px dashed #ff9800; background: #fffde7; padding: 12px; border-radius: 8px; margin-top: 20px; }
+  .ticket-cold .ticket-title { color: #e65100; font-size: 16px; }
+  
+  .ticket-prize-tag { font-size: 12px; padding: 2px 8px; border-radius: 4px; font-weight: bold; margin-left: 8px; }
+  .tag-win { background: #4caf50; color: white; }
+  .tag-lose { background: #9e9e9e; color: white; }
+  
+  /* 金额标签 */
+  .price-tag { font-size: 12px; color: #e65100; font-weight: bold; margin-left: 5px; background: #fff3e0; padding: 2px 6px; border-radius: 4px; border: 1px solid #ffcc80; }
+
+  .copy-btn { background: #2196f3; color: white; border: none; border-radius: 4px; padding: 4px 12px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+  .copy-btn:hover { background: #1976d2; }
+  .copy-btn:active { background: #4caf50; }
+
+  .ball { display: inline-block; width: 30px; height: 30px; line-height: 30px; text-align: center; border-radius: 50%; color: #fff; font-weight: bold; font-size: 15px; margin: 2px; }
+  .red { background: var(--primary); }
+  .blue { background: var(--secondary); }
+  .warn { color: #b71c1c; font-size: 12px; margin-top: 20px; text-align: center; line-height: 1.5; }
+  .pool-info { font-size: 13px; color: #1565c0; background: #e3f2fd; padding: 10px; border-radius: 4px; margin-top: 10px; font-weight: bold; word-break: break-all; }
+  .cold-pool { font-size: 13px; color: #e65100; background: #fff3e0; padding: 10px; border-radius: 4px; margin-top: 10px; font-weight: bold; word-break: break-all; }
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('ssq')">双色球数据统计</div>
+    <div class="tab" onclick="switchTab('dlt')">大乐透数据统计</div>
+  </div>
+
+  <!-- 双色球 -->
+  <div id="tab-ssq" class="content active">
+    <button class="btn-run" onclick="fetchData('ssq')">开始分析双色球</button>
+    
+    <div class="manual-box">
+      <input type="text" id="manualInput-ssq" placeholder="如未同步，手动输入：26125 04 06 10 15 26 27 11">
+      <button onclick="addManualData('ssq')">保存并计算</button>
+    </div>
+    
+    <div id="score-board-ssq" class="score-board" style="display:none;">
+      <div class="score-board-left">累计中奖：<span class="score-total" id="total-ssq">0</span> 元</div>
+      <button class="history-btn" onclick="toggleHistory('ssq')">查看历史明细 ▾</button>
+    </div>
+    <div id="history-panel-ssq" class="history-panel"></div>
+
+    <div id="status-ssq" class="status">点击开始拉取历史全量数据</div>
+    <div id="result-ssq" class="result-card">
+      <div class="rule-tip">
+        <span>核心算法：</span>转移频次 + 黄金和值(80-125) + 奇偶大小平衡 + 强制插大号(防撞车) + 防偏态连号同尾
+      </div>
+      <div id="latest-ssq" class="latest-info"></div>
+      <div id="pool-ssq" class="pool-info"></div>
+      <div id="target-period-title-ssq" class="period-title"></div>
+      <div id="tickets-ssq"></div>
+      
+      <div id="cold-ticket-ssq" class="ticket-cold"></div>
+
+      <!-- 自定义复式 -->
+      <div class="custom-box">
+        <div class="custom-title">🎯 自定义复式选号</div>
+        <div class="custom-controls">
+          <span>我要买：</span>
+          <select id="ssq-r-count">
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+            <option value="9">9</option>
+            <option value="10">10</option>
+            <option value="11" selected>11</option>
+            <option value="12">12</option>
+            <option value="13">13</option>
+            <option value="14">14</option>
+            <option value="15">15</option>
+          </select> 个红球 +
+          <select id="ssq-b-count">
+            <option value="1">1</option>
+            <option value="2" selected>2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+          </select> 个蓝球
+          <button onclick="generateCustom('ssq')">生成</button>
+        </div>
+        <div id="custom-result-ssq" class="custom-result"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 大乐透 -->
+  <div id="tab-dlt" class="content">
+    <button class="btn-run" onclick="fetchData('dlt')">开始分析大乐透</button>
+    
+    <div class="switch-box">
+      <label><input type="checkbox" id="dlt-append" onchange="updateState('dlt')"> 追加投注（每注3元）</label>
+    </div>
+
+    <div class="manual-box">
+      <input type="text" id="manualInput-dlt" placeholder="如未同步，手动输入：26126 05 06 22 29 30 05 07">
+      <button onclick="addManualData('dlt')">保存并计算</button>
+    </div>
+
+    <div id="score-board-dlt" class="score-board" style="display:none;">
+      <div class="score-board-left">累计中奖：<span class="score-total" id="total-dlt">0</span> 元</div>
+      <button class="history-btn" onclick="toggleHistory('dlt')">查看历史明细 ▾</button>
+    </div>
+    <div id="history-panel-dlt" class="history-panel"></div>
+
+    <div id="status-dlt" class="status">点击开始拉取历史全量数据</div>
+    <div id="result-dlt" class="result-card">
+      <div class="rule-tip">
+        <span>核心算法：</span>转移频次 + 黄金和值(75-110) + 奇偶大小平衡 + 强制插大号(防撞车) + 防偏态连号同尾
+      </div>
+      <div id="latest-dlt" class="latest-info"></div>
+      <div id="pool-dlt" class="pool-info"></div>
+      <div id="target-period-title-dlt" class="period-title"></div>
+      <div id="tickets-dlt"></div>
+      
+      <div id="cold-ticket-dlt" class="ticket-cold"></div>
+
+      <!-- 自定义复式 -->
+      <div class="custom-box">
+        <div class="custom-title">🎯 自定义复式选号</div>
+        <div class="custom-controls">
+          <span>我要买：</span>
+          <select id="dlt-r-count">
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+            <option value="9" selected>9</option>
+            <option value="10">10</option>
+            <option value="11">11</option>
+            <option value="12">12</option>
+            <option value="13">13</option>
+            <option value="14">14</option>
+            <option value="15">15</option>
+          </select> 个前区 +
+          <select id="dlt-b-count">
+            <option value="2">2</option>
+            <option value="3" selected>3</option>
+            <option value="4">4</option>
+          </select> 个后区
+          <button onclick="generateCustom('dlt')">生成</button>
+        </div>
+        <div id="custom-result-dlt" class="custom-result"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="warn">彩票为独立随机事件，统计概率仅供参考，不保证中奖，请理性购彩。</div>
+</div>
+
+<script>
+let gDataA = [];
+let gDataB = [];
+
+// 计算组合数 C(n, r)
+function nCr(n, r) {
+  if (r > n) return 0;
+  if (r === 0 || r === n) return 1;
+  let res = 1;
+  for (let i = 1; i <= r; i++) res = res * (n - i + 1) / i;
+  return res;
+}
+
+// 计算复式注数和金额
+function calcAmount(rCount, bCount, type, isAppend) {
+  let count = type === 'ssq' ? nCr(rCount, 6) * nCr(bCount, 1) : nCr(rCount, 5) * nCr(bCount, 2);
+  let price = (type === 'dlt' && isAppend) ? 3 : 2;
+  return { count, amount: count * price };
+}
+
+function switchTab(tabId) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById(`tab-${tabId}`).classList.add('active');
+}
+
+// 切换追加投注时实时刷新
+function updateState(type) {
+  if (type === 'dlt' && gDataB.length > 0) {
+    processB(gDataB, document.getElementById('status-dlt'), document.getElementById('result-dlt'), document.querySelector('#tab-dlt .btn-run'));
+    generateCustom('dlt');
+  }
+}
+
+function fmtBalls(balls, type) {
+  let sorted = [...balls].sort((a,b)=>a-b);
+  return sorted.map(x => `<span class="ball ${type}">${String(x).padStart(2,"0")}</span>`).join("");
+}
+
+function copyTicket(btn, reds, blues) {
+  let rStr = [...reds].sort((a,b)=>a-b).map(x=>String(x).padStart(2,'0')).join(".");
+  let bStr = [...blues].sort((a,b)=>a-b).map(x=>String(x).padStart(2,'0')).join(".");
+  let str = `${rStr}+${bStr}(1倍)`;
+  navigator.clipboard.writeText(str).then(() => {
+    btn.innerText = "已复制!"; btn.style.background = "#4caf50";
+    setTimeout(() => { btn.innerText = "复制"; btn.style.background = "#2196f3"; }, 1500);
+  });
+}
+
+function getCombinations(arr, size) {
+  let result = [];
+  function helper(start, current) {
+    if(current.length === size) { result.push([...current]); return; }
+    for(let i = start; i < arr.length; i++) {
+      current.push(arr[i]); helper(i + 1, current); current.pop();
+    }
+  }
+  helper(0, []);
+  return result;
+}
+
+function matchScoreA(rList, bList, winR, winB) {
+  let r = rList.filter(x => winR.includes(x)).length;
+  let b = bList[0] === winB ? 1 : 0;
+  if (r === 6 && b === 1) return 5000000; if (r === 6 && b === 0) return 200000;
+  if (r === 5 && b === 1) return 3000; if ((r === 5 && b === 0) || (r === 4 && b === 1)) return 200;
+  if ((r === 4 && b === 0) || (r === 3 && b === 1)) return 10; if (b === 1) return 5;
+  return 0;
+}
+
+function matchScoreB(fList, bList, winF, winB, isAppend) {
+  let f = fList.filter(x => winF.includes(x)).length;
+  let b = bList.filter(x => winB.includes(x)).length;
+  let base = 0, add = 0;
+  if (f===5 && b===2) { base = 5000000; add = 4000000; }
+  else if (f===5 && b===1) { base = 100000; add = 80000; }
+  else if (f===5 && b===0) { base = 10000; }
+  else if (f===4 && b===2) { base = 3000; }
+  else if (f===4 && b===1) { base = 300; }
+  else if (f===3 && b===2) { base = 200; }
+  else if (f===4 && b===0) { base = 100; }
+  else if ((f===3 && b===1) || (f===2 && b===2)) { base = 15; }
+  else if ((f===3 && b===0) || (f===2 && b===1) || (f===1 && b===2) || (f===0 && b===2)) { base = 5; }
+  return isAppend ? base + add : base;
+}
+
+function calcComplexA(rList, bList, winR, winB) {
+  let total = 0;
+  for(let rc of getCombinations(rList, 6)) for(let bc of getCombinations(bList, 1)) total += matchScoreA(rc, bc[0], winR, winB);
+  return total;
+}
+
+function calcComplexB(fList, bList, winF, winB, isAppend) {
+  let total = 0;
+  for(let fc of getCombinations(fList, 5)) for(let bc of getCombinations(bList, 2)) total += matchScoreB(fc, bc, winF, winB, isAppend);
+  return total;
+}
+
+function updateUI(type) {
+  const kTotal = type === 'ssq' ? 'totalA' : 'totalB';
+  const kHist = type === 'ssq' ? 'histA' : 'histB';
+  let total = parseFloat(localStorage.getItem(kTotal) || '0');
+  document.getElementById(`total-${type}`).innerText = total.toLocaleString();
+  document.getElementById(`score-board-${type}`).style.display = 'flex';
+  let hList = JSON.parse(localStorage.getItem(kHist) || '[]');
+  let panel = document.getElementById(`history-panel-${type}`);
+  
+  if(hList.length === 0) {
+    panel.innerHTML = '<div style="text-align:center;color:#999;padding:10px;">暂无中奖记录</div>'; return;
+  }
+  hList.sort((a,b) => parseInt(b.p) - parseInt(a.p));
+  panel.innerHTML = hList.map(item => {
+    let appendText = item.append ? '<span style="color:#d32f2f;font-size:12px;"> (含追加)</span>' : '';
+    return `<div class="history-item"><b>第 ${item.p} 期：</b> 单式(${item.s1}元) + 7+1/6+2(${item.s2}元) + 8+2(${item.s3}元) = <span class="highlight">${item.t > 0 ? '中奖 ' + item.t + ' 元' : '未中奖'}${appendText}</span></div>`;
+  }).join('');
+}
+
+function toggleHistory(type) {
+  let panel = document.getElementById(`history-panel-${type}`);
+  panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+}
+
+async function fetchData(type) {
+  const btn = document.querySelector(`#tab-${type} .btn-run`);
+  const statusEl = document.getElementById(`status-${type}`);
+  const resultEl = document.getElementById(`result-${type}`);
+  btn.disabled = true; resultEl.style.display = 'none';
+  statusEl.innerHTML = `正在拉取全量数据及最新结果...`;
+
+  try {
+    if (type === 'ssq') {
+      let allD = [], promises = [];
+      const nowY = new Date().getFullYear();
+      for (let y = 2003; y <= nowY; y++) promises.push(fetch(`https://fastly.jsdelivr.net/gh/wangdaodao/DoubleColorBall@main/data/${y}.json?t=${Date.now()}`).then(r => r.ok ? r.json() : null).catch(() => null));
+      const res = await Promise.all(promises);
+      res.forEach(j => { if (j && j.data && Array.isArray(j.data)) allD = allD.concat(j.data); });
+      
+      const liveSrc = ["https://api.pearktrue.cn/api/lottery/?type=ssq", "https://api.vvhan.com/api/lottery?type=ssq", "https://api.oioweb.cn/api/lottery?type=ssq"];
+      const lRes = await Promise.all(liveSrc.map(u => fetch(u + "&t=" + Date.now()).then(r => r.ok ? r.json() : null).catch(() => null)));
+      let maxP = 0, latest = null;
+      allD.forEach(item => { let p = parseInt(item.code); if(p > maxP) maxP = p; });
+      
+      lRes.forEach(j => {
+        if(!j) return;
+        let item = j.data ? (Array.isArray(j.data) ? j.data[0] : j.data) : (j.code === 200 ? j.data : null);
+        if(item) {
+          let p = item.code || item.issue || item.expect;
+          let f = item.red || item.openCode || item.front;
+          let b = item.blue || item.back;
+          if(p && f && b) {
+            let pN = parseInt(p);
+            if(pN > maxP) {
+              maxP = pN;
+              let fA = Array.isArray(f) ? f.map(Number) : String(f).match(/\d+/g).map(Number);
+              let bA = Array.isArray(b) ? b.map(Number) : String(b).match(/\d+/g).map(Number);
+              latest = { code: String(p), red: fA.slice(0,6).sort((a,b)=>a-b), blue: bA[0] };
+            }
+          }
+        }
+      });
+      if(latest) allD.push(latest);
+      if(allD.length < 100) throw new Error("双色球数据拉取失败");
+      
+      let map = new Map();
+      allD.forEach(item => { if (item.code && item.red && item.blue) map.set(String(item.code), { p: String(item.code), f: item.red.map(Number).sort((a,b)=>a-b), b: [Number(item.blue)] }); });
+      gDataA = Array.from(map.values()).sort((a, b) => a.p.localeCompare(b.p));
+      processA(gDataA, statusEl, resultEl, btn);
+
+    } else {
+      const bUrl = "https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry";
+      let allD = [], promises = [];
+      for(let p=1; p<=30; p++) {
+        const q = new URLSearchParams({ gameNo: "85", provinceId: "0", pageSize: "100", isVerify: "1", pageNo: p.toString() });
+        promises.push((async () => {
+          for(let px of ["", "https://api.codetabs.com/v1/proxy?quest=", "https://corsproxy.io/?"]) {
+            try {
+              const r = await fetch(px ? (px + encodeURIComponent(bUrl + "?" + q.toString())) : (bUrl + "?" + q.toString()), { headers: { "Accept": "application/json" } });
+              if(!r.ok) continue;
+              const j = await r.json();
+              if(j && j.value && j.value.list) return j.value.list;
+            } catch(e) {}
+          }
+          return [];
+        })());
+      }
+      const res = await Promise.all(promises);
+      res.forEach(l => { if(Array.isArray(l)) allD = allD.concat(l); });
+      if(allD.length < 100) throw new Error("大乐透数据拉取失败");
+      
+      gDataB = allD.map(item => {
+        let nums = item.lotteryDrawResult.split(" ").map(Number);
+        return { p: item.lotteryDrawNum, f: nums.slice(0,5).sort((a,b)=>a-b), b: nums.slice(5,7).sort((a,b)=>a-b) };
+      }).sort((a,b)=>a.p.localeCompare(b.p));
+
+      processB(gDataB, statusEl, resultEl, btn);
+    }
+  } catch (e) {
+    statusEl.innerHTML = `❌ 获取失败：${e.message}<br>请刷新或手动输入。`;
+    btn.disabled = false;
+  }
+}
+
+function addManualData(type) {
+  const val = document.getElementById(`manualInput-${type}`).value.trim();
+  if(!val) return alert("请输入完整号码！");
+  const p = val.split(/\s+/);
+  
+  if (type === 'ssq') {
+    if(p.length < 8) return alert("双色球格式错误，需要8个数字。");
+    const batch = String(p[0]);
+    const f = p.slice(1, 7).map(Number).sort((a,b)=>a-b);
+    const b = [Number(p[7])];
+    if(!gDataA.find(x => x.p === batch)) gDataA.push({ p: batch, f, b });
+    gDataA.sort((a, b) => a.p.localeCompare(b.p));
+    processA(gDataA, document.getElementById('status-ssq'), document.getElementById('result-ssq'), document.querySelector('#tab-ssq .btn-run'));
+  } else {
+    if(p.length < 8) return alert("大乐透格式错误，需要8个数字。");
+    const batch = String(p[0]);
+    const f = p.slice(1, 6).map(Number).sort((a,b)=>a-b);
+    const b = p.slice(6, 8).map(Number).sort((a,b)=>a-b);
+    if(!gDataB.find(x => x.p === batch)) gDataB.push({ p: batch, f, b });
+    gDataB.sort((a, b) => a.p.localeCompare(b.p));
+    processB(gDataB, document.getElementById('status-dlt'), document.getElementById('result-dlt'), document.querySelector('#tab-dlt .btn-run'));
+  }
+  
+  document.getElementById(`manualInput-${type}`).value = "";
+  alert(`✅ 已更新至第 ${p[0]} 期！`);
+}
+
+function calcTransfer(history) {
+  const nextMap = new Map();
+  for(let i = 0; i < history.length - 1; i++) {
+    const cur = history[i], nxt = history[i+1];
+    for(let n of cur.f) {
+      for(let m of nxt.f) {
+        if(!nextMap.has(n)) nextMap.set(n, new Map());
+        const inner = nextMap.get(n);
+        inner.set(m, (inner.get(m) || 0) + 1); 
+      }
+    }
+  }
+  const pool = new Map();
+  const last = history[history.length - 1]; 
+  for(let n of last.f) {
+    if(nextMap.has(n)) {
+      [...nextMap.get(n).entries()].sort((a,b)=>b[1]-a[1]).slice(0, 4).forEach(([num, freq]) => pool.set(num, (pool.get(num)||0) + freq));
+    }
+  }
+  return [...pool.entries()].sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
+}
+
+function calcCold(history, type) {
+  let act = {}, totalN = history.length;
+  if (type === 'ssq') for(let i=1; i<=33; i++) act[i] = 0; else for(let i=1; i<=35; i++) act[i] = 0;
+  history.forEach(item => { item.f.forEach(n => { if(act[n] !== undefined) act[n]++; }); });
+  let theo = type === 'ssq' ? totalN * (6 / 33) : totalN * (5 / 35);
+  let missList = [];
+  for(let k in act) missList.push({ num: parseInt(k), miss: theo - act[k] });
+  return missList.sort((a,b) => b.miss - a.miss).map(x => x.num);
+}
+
+// 核心过滤引擎（已自动融合防撞车和黄金和值）
+function filterCombination(nums, type, lastNums) {
+  let len = nums.length;
+  let odd = nums.filter(n => n % 2 !== 0).length;
+  let sum = nums.reduce((a,b) => a + b, 0);
+  
+  let c = 0, maxC = 0;
+  for(let i=1; i<len; i++) {
+    if(nums[i] === nums[i-1] + 1) { c++; maxC = Math.max(maxC, c); } else { c = 0; }
+  }
+  
+  // 1. 必须包含大号（防撞车，避开纯生日号）
+  if (type === 'ssq' && !nums.some(n => n >= 32)) return false;
+  if (type === 'dlt' && !nums.some(n => n >= 32)) return false;
+
+  // 2. 黄金和值收窄 (一等奖最密集区间)
+  if (type === 'ssq' && (sum < 80 || sum > 125)) return false;
+  if (type === 'dlt' && (sum < 75 || sum > 110)) return false;
+
+  // 3. 跨度过滤
+  let span = nums[nums.length-1] - nums[0];
+  if (span < 15) return false;
+
+  // 4. 防偏态连号（最多允许1组2连号，不允许3连号）
+  if(maxC >= 2) return false; 
+
+  // 5. 基础形态过滤
+  if(type === 'ssq') {
+    if(len === 6 && (odd < 2 || odd > 4)) return false;
+    if(len === 7 && (odd < 2 || odd > 5)) return false;
+    if(len === 8 && (odd < 3 || odd > 5)) return false;
+    let big = nums.filter(n => n >= 17).length;
+    if(len === 6 && (big < 2 || big > 4)) return false;
+    if(len === 7 && (big < 2 || big > 5)) return false;
+    if(len === 8 && (big < 3 || big > 5)) return false;
+    let z1 = nums.filter(n => n <= 11).length, z2 = nums.filter(n => n >= 12 && n <= 22).length, z3 = nums.filter(n => n >= 23).length;
+    if(z1 === 0 || z2 === 0 || z3 === 0) return false;
+  } else {
+    if(len === 5 && (odd < 2 || odd > 3)) return false;
+    if(len === 6 && (odd < 2 || odd > 4)) return false;
+    if(len === 8 && (odd < 3 || odd > 5)) return false;
+    let big = nums.filter(n => n >= 18).length;
+    if(len === 5 && (big < 2 || big > 3)) return false;
+    if(len === 6 && (big < 2 || big > 4)) return false;
+    if(len === 8 && (big < 3 || big > 5)) return false;
+    let z1 = nums.filter(n => n <= 12).length, z2 = nums.filter(n => n >= 13 && n <= 24).length, z3 = nums.filter(n => n >= 25).length;
+    let az = 0; if(z1 > 0) az++; if(z2 > 0) az++; if(z3 > 0) az++;
+    if(az < 2) return false;
+  }
+
+  // 6. 重号与同尾限制
+  if(lastNums) {
+    let rep = nums.filter(n => lastNums.includes(n)).length;
+    if(len <= 7 && rep > 2) return false;
+    if(len === 8 && rep > 3) return false;
+  }
+  
+  let tails = nums.map(n => n % 10), tCount = {};
+  for(let t of tails) {
+    tCount[t] = (tCount[t] || 0) + 1;
+    if(len <= 7 && tCount[t] > 2) return false; 
+    if(len === 8 && tCount[t] > 3) return false; 
+  }
+
+  return true;
+}
+
+function generateTickets(pool, sizes, type, lastNums) {
+  let base = [];
+  function findBase(s, cur) {
+    if(cur.length === sizes[0]) {
+      if(filterCombination(cur, type, lastNums)) { base = [...cur]; return true; }
+      return false;
+    }
+    for(let i = s; i < pool.length; i++) {
+      cur.push(pool[i]);
+      if(findBase(i + 1, cur)) return true;
+      cur.pop();
+    }
+    return false;
+  }
+  findBase(0, []);
+  
+  // 兜底：如果条件太苛刻找不到，放宽大号限制
+  if(base.length === 0) {
+    base = pool.slice(0, sizes[0]).sort((a,b)=>a-b);
+  }
+
+  function expand(cur, sz) {
+    let res = [...cur];
+    for(let num of pool) {
+      if(res.includes(num)) continue;
+      let test = [...res, num].sort((a,b)=>a-b);
+      // 扩展时降低苛刻条件，只防3连号
+      let c=0, mc=0;
+      for(let i=1;i<test.length;i++){ if(test[i]===test[i-1]+1){c++;mc=Math.max(mc,c);}else{c=0;} }
+      if(mc < 2) { 
+        res = test;
+        if(res.length === sz) break;
+      }
+    }
+    if(res.length < sz) {
+      for(let num of pool) { if(!res.includes(num)) res.push(num); if(res.length === sz) break; }
+    }
+    return res.sort((a,b)=>a-b);
+  }
+  return { base: base, mid: expand(base, sizes[1]), max: expand(expand(base, sizes[1]), sizes[2]) };
+}
+
+function processA(history, statusEl, resultEl, btn) {
+  const latest = history[history.length - 1]; 
+  const lastNums = latest.f;
+  const lNum = parseInt(latest.p);
+  const nxtP = String(lNum + 1);
+
+  const pending = JSON.parse(localStorage.getItem('pA') || '[]');
+  let hRec = JSON.parse(localStorage.getItem('histA') || '[]');
+  const rem = [];
+  
+  for(let r of pending) {
+    if(parseInt(r.targetPeriod) === lNum) {
+      let s1 = calcComplexA(r.t1.r, [r.t1.b], latest.f, latest.b[0]);
+      let s2 = calcComplexA(r.t2.r, [r.t2.b], latest.f, latest.b[0]);
+      let s3 = calcComplexA(r.t3.r, r.t3.b, latest.f, latest.b[0]);
+      let t = s1 + s2 + s3;
+      hRec.push({ p: r.targetPeriod, s1: s1, s2: s2, s3: s3, t: t });
+      if(t > 0) localStorage.setItem('totalA', parseFloat(localStorage.getItem('totalA') || '0') + t);
+    } else if(parseInt(r.targetPeriod) > lNum) rem.push(r);
+  }
+  localStorage.setItem('pA', JSON.stringify(rem));
+  localStorage.setItem('histA', JSON.stringify(hRec));
+  updateUI('ssq');
+
+  const redPool = calcTransfer(history);
+  const coldPool = calcCold(history, 'ssq');
+  
+  document.getElementById('latest-ssq').innerHTML = `最新一期开奖 (<b>${latest.p}</b>期)：<br>${fmtBalls(latest.f, 'red')} <span style="margin:0 5px;font-weight:bold">+</span> ${fmtBalls(latest.b, 'blue')}`;
+  document.getElementById('pool-ssq').innerHTML = `红球候选池Top15：${redPool.slice(0, 15).map(x=>String(x).padStart(2,'0')).join(" ")}...`;
+  document.getElementById('target-period-title-ssq').innerHTML = `预测下一期：第 <b>${nxtP}</b> 期号码（待开奖）`;
+
+  const blueMap = new Map();
+  let lastBlue = latest.b[0];
+  for(let i=0; i < history.length - 1; i++) {
+    if(history[i].b[0] === lastBlue) blueMap.set(history[i+1].b[0], (blueMap.get(history[i+1].b[0])||0) + 1);
+  }
+  const bEnt = [...blueMap.entries()].sort((a,b)=>b[1]-a[1]);
+  const tB1 = bEnt.length > 0 ? bEnt[0][0] : 1;
+  const tB2 = bEnt.length > 1 ? bEnt[1][0] : 2;
+  const b8 = [tB1, tB2].sort((a,b)=>a-b);
+
+  const { base, mid, max } = generateTickets(redPool, [6, 7, 8], 'ssq', lastNums);
+
+  rem.push({ targetPeriod: nxtP, t1: { r: base, b: tB1 }, t2: { r: mid, b: tB1 }, t3: { r: max, b: b8 } });
+  localStorage.setItem('pA', JSON.stringify(rem));
+
+  // 守号不强求苛刻条件
+  const coldT = generateTickets(coldPool, [6, 7, 8], 'ssq', lastNums).base; 
+  
+  let bCount = new Array(17).fill(0);
+  history.forEach(item => { if(item.b[0] >=1 && item.b[0] <=16) bCount[item.b[0]]++; });
+  let mBlueList = [];
+  for(let i=1; i<=16; i++) mBlueList.push({ num: i, miss: history.length * (1/16) - bCount[i] });
+  mBlueList.sort((a,b)=>b.miss - a.miss);
+  const coldB = mBlueList[0].num;
+
+  document.getElementById('cold-ticket-ssq').innerHTML = `
+    <div class="ticket-header">
+      <div class="ticket-title">🛡️ 守号推荐（冷号回补）：<span class="price-tag">1注 2元</span></div>
+      <button class="copy-btn" onclick="copyTicket(this, ${JSON.stringify(coldT)}, [${coldB}])">复制</button>
+    </div>
+    <div class="cold-pool">冷号候选池Top15：${coldPool.slice(0,15).map(x=>String(x).padStart(2,'0')).join(" ")}...</div>
+    <div style="margin-top:10px;">${fmtBalls(coldT, 'red')} <span style="margin:0 5px;font-weight:bold">+</span> ${fmtBalls([coldB], 'blue')}</div>
+  `;
+
+  let p1 = calcAmount(6, 1, 'ssq', false);
+  let p2 = calcAmount(7, 1, 'ssq', false);
+  let p3 = calcAmount(8, 2, 'ssq', false);
+
+  document.getElementById('tickets-ssq').innerHTML = `
+    <div class="ticket">
+      <div class="ticket-header"><div class="ticket-title">单式 6+1：<span class="price-tag">${p1.count}注 ${p1.amount}元</span></div><button class="copy-btn" onclick="copyTicket(this, ${JSON.stringify(base)}, [${tB1}])">复制</button></div>
+      <div>${fmtBalls(base, 'red')} <span style="margin:0 5px;font-weight:bold">+</span> ${fmtBalls([tB1], 'blue')}</div>
+    </div>
+    <div class="ticket">
+      <div class="ticket-header"><div class="ticket-title">7+1 复式：<span class="price-tag">${p2.count}注 ${p2.amount}元</span></div><button class="copy-btn" onclick="copyTicket(this, ${JSON.stringify(mid)}, [${tB1}])">复制</button></div>
+      <div>${fmtBalls(mid, 'red')} <span style="margin:0 5px;font-weight:bold">+</span> ${fmtBalls([tB1], 'blue')}</div>
+    </div>
+    <div class="ticket">
+      <div class="ticket-header"><div class="ticket-title">8+2 复式：<span class="price-tag">${p3.count}注 ${p3.amount}元</span></div><button class="copy-btn" onclick="copyTicket(this, ${JSON.stringify(max)}, ${JSON.stringify(b8)})">复制</button></div>
+      <div>${fmtBalls(max, 'red')} <span style="margin:0 5px;font-weight:bold">+</span> ${fmtBalls(b8, 'blue')}</div>
+    </div>
+  `;
+
+  document.getElementById('custom-result-ssq').style.display = 'none';
+  resultEl.style.display = 'block';
+  statusEl.innerHTML = `分析完成！已基于全量 <strong>${history.length}</strong> 期数据计算。`;
+  btn.disabled = false;
+}
+
+function processB(history, statusEl, resultEl, btn) {
+  const latest = history[history.length - 1];
+  const lastNums = latest.f;
+  const lNum = parseInt(latest.p);
+  const nxtP = String(lNum + 1);
+  const isAppend = document.getElementById('dlt-append').checked;
+
+  const pending = JSON.parse(localStorage.getItem('pB') || '[]');
+  let hRec = JSON.parse(localStorage.getItem('histB') || '[]');
+  const rem = [];
+  
+  for(let r of pending) {
+    if(parseInt(r.targetPeriod) === lNum) {
+      let rAppend = r.isAppend || false;
+      let s1 = calcComplexB(r.t1.r, r.t1.b, latest.f, latest.b, rAppend);
+      let s2 = calcComplexB(r.t2.r, r.t2.b, latest.f, latest.b, rAppend);
+      let s3 = calcComplexB(r.t3.r, r.t3.b, latest.f, latest.b, rAppend);
+      let t = s1 + s2 + s3;
+      hRec.push({ p: r.targetPeriod, s1: s1, s2: s2, s3: s3, t: t, append: rAppend });
+      if(t > 0) localStorage.setItem('totalB', parseFloat(localStorage.getItem('totalB') || '0') + t);
+    } else if(parseInt(r.targetPeriod) > lNum) rem.push(r);
+  }
+  localStorage.setItem('pB', JSON.stringify(rem));
+  localStorage.setItem('histB', JSON.stringify(hRec));
+  updateUI('dlt');
+
+  const fPool = calcTransfer(history);
+  const coldPool = calcCold(history, 'dlt');
+
+  document.getElementById('latest-dlt').innerHTML = `最新一期开奖 (<b>${latest.p}</b>期)：<br>${fmtBalls(latest.f, 'red')} <span style="margin:0 5px;font-weight:bold">+</span> ${fmtBalls(latest.b, 'blue')}`;
+  document.getElementById('pool-dlt').innerHTML = `前区候选池Top15：${fPool.slice(0, 15).map(x=>String(x).padStart(2,'0')).join(" ")}...`;
+  document.getElementById('target-period-title-dlt').innerHTML = `预测下一期：第 <b>${nxtP}</b> 期号码（待开奖）`;
+
+  const bMap = new Map();
+  for(let i=0; i < history.length - 1; i++) {
+    for(let b of latest.b) {
+      if(history[i].b.includes(b)) {
+        for(let nB of history[i+1].b) bMap.set(nB, (bMap.get(nB)||0) + 1);
+      }
+    }
+  }
+  const tBs = [...bMap.entries()].sort((a,b)=>b[1]-a[1]).slice(0, 2).map(x=>x[0]).sort((a,b)=>a-b);
+
+  const { base, mid, max } = generateTickets(fPool, [5, 6, 8], 'dlt', lastNums);
+
+  rem.push({ targetPeriod: nxtP, t1: { r: base, b: tBs }, t2: { r: mid, b: tBs }, t3: { r: max, b: tBs }, isAppend: isAppend });
+  localStorage.setItem('pB', JSON.stringify(rem));
+
+  const coldT = generateTickets(coldPool, [5, 6, 8], 'dlt', lastNums).base;
+
+  let bCount = new Array(13).fill(0);
+  history.forEach(item => { item.b.forEach(n => { if(n>=1 && n<=12) bCount[n]++; }); });
+  let mBackList = [];
+  for(let i=1; i<=12; i++) mBackList.push({ num: i, miss: history.length * (2/12) - bCount[i] });
+  mBackList.sort((a,b)=>b.miss - a.miss);
+  const coldBs = [mBackList[0].num, mBackList[1].num].sort((a,b)=>a-b);
+
+  document.getElementById('cold-ticket-dlt').innerHTML = `
+    <div class="ticket-header">
+      <div class="ticket-title">🛡️ 守号推荐（冷号回补）：<span class="price-tag">1注 ${isAppend ? '3' : '2'}元</span></div>
+      <button class="copy-btn" onclick="copyTicket(this, ${JSON.stringify(coldT)}, ${JSON.stringify(coldBs)})">复制</button>
+    </div>
+    <div class="cold-pool">冷号候选池Top15：${coldPool.slice(0,15).map(x=>String(x).padStart(2,'0')).join(" ")}...</div>
+    <div style="margin-top:10px;">${fmtBalls(coldT, 'red')} <span style="margin:0 5px;font-weight:bold">+</span> ${fmtBalls(coldBs, 'blue')}</div>
+  `;
+
+  let p1 = calcAmount(5, 2, 'dlt', isAppend);
+  let p2 = calcAmount(6, 2, 'dlt', isAppend);
+  let p3 = calcAmount(8, 2, 'dlt', isAppend);
+
+  document.getElementById('tickets-dlt').innerHTML = `
+    <div class="ticket">
+      <div class="ticket-header"><div class="ticket-title">单式 5+2：<span class="price-tag">${p1.count}注 ${p1.amount}元</span></div><button class="copy-btn" onclick="copyTicket(this, ${JSON.stringify(base)}, ${JSON.stringify(tBs)})">复制</button></div>
+      <div>${fmtBalls(base, 'red')} <span style="margin:0 5px;font-weight:bold">+</span> ${fmtBalls(tBs, 'blue')}</div>
+    </div>
+    <div class="ticket">
+      <div class="ticket-header"><div class="ticket-title">6+2 复式：<span class="price-tag">${p2.count}注 ${p2.amount}元</span></div><button class="copy-btn" onclick="copyTicket(this, ${JSON.stringify(mid)}, ${JSON.stringify(tBs)})">复制</button></div>
+      <div>${fmtBalls(mid, 'red')} <span style="margin:0 5px;font-weight:bold">+</span> ${fmtBalls(tBs, 'blue')}</div>
+    </div>
+    <div class="ticket">
+      <div class="ticket-header"><div class="ticket-title">8+2 复式：<span class="price-tag">${p3.count}注 ${p3.amount}元</span></div><button class="copy-btn" onclick="copyTicket(this, ${JSON.stringify(max)}, ${JSON.stringify(tBs)})">复制</button></div>
+      <div>${fmtBalls(max, 'red')} <span style="margin:0 5px;font-weight:bold">+</span> ${fmtBalls(tBs, 'blue')}</div>
+    </div>
+  `;
+
+  document.getElementById('custom-result-dlt').style.display = 'none';
+  resultEl.style.display = 'block';
+  statusEl.innerHTML = `分析完成！已基于全量 <strong>${history.length}</strong> 期数据计算。`;
+  btn.disabled = false;
+}
+
+// ===== 自定义复式生成逻辑 =====
+function generateCustom(type) {
+  const isSSQ = type === 'ssq';
+  const rCount = parseInt(document.getElementById(`${type}-r-count`).value);
+  const bCount = parseInt(document.getElementById(`${type}-b-count`).value);
+  const isAppend = type === 'dlt' ? document.getElementById('dlt-append').checked : false;
+  
+  if ((isSSQ && gDataA.length === 0) || (!isSSQ && gDataB.length === 0)) {
+    alert("请先点击上方按钮拉取历史数据！"); return;
+  }
+
+  const history = isSSQ ? gDataA : gDataB;
+  const latest = history[history.length - 1]; 
+  const lastNums = latest.f;
+
+  const redPool = calcTransfer(history);
+  
+  let rCombo = [];
+  let targetOdd = Math.round(rCount / 2); 
+  let targetBig = Math.round(rCount / 2); 
+  let curOdd = 0, curBig = 0;
+  
+  for (let num of redPool) {
+    if (rCombo.length >= rCount) break;
+    
+    if (rCombo.includes(num - 1) && rCombo.includes(num - 2)) continue;
+    if (rCombo.includes(num + 1) && rCombo.includes(num + 2)) continue;
+
+    let isOdd = num % 2 !== 0;
+    let isBig = isSSQ ? (num >= 17) : (num >= 18);
+    
+    if (isOdd && curOdd >= targetOdd + 1) continue;
+    if (!isOdd && (rCombo.length - curOdd) >= targetOdd + 1) continue;
+    if (isBig && curBig >= targetBig + 1) continue;
+    if (!isBig && (rCombo.length - curBig) >= targetBig + 1) continue;
+
+    rCombo.push(num);
+    if (isOdd) curOdd++;
+    if (isBig) curBig++;
+  }
+
+  // 自动保证包含大号
+  if (!rCombo.some(n => n >= 32)) {
+    rCombo.pop();
+    rCombo.push(isSSQ ? 33 : 35);
+  }
+
+  if (rCombo.length < rCount) {
+    for (let num of redPool) {
+      if (!rCombo.includes(num)) {
+        rCombo.push(num);
+        if (rCombo.length === rCount) break;
+      }
+    }
+  }
+  rCombo.sort((a,b)=>a-b);
+
+  let bCombo = [];
+  const blueMap = new Map();
+  let lastBlue = latest.b[0];
+  
+  if (isSSQ) {
+    for(let i=0; i < history.length - 1; i++) {
+      if(history[i].b[0] === lastBlue) blueMap.set(history[i+1].b[0], (blueMap.get(history[i+1].b[0])||0) + 1);
+    }
+    let bEnt = [...blueMap.entries()].sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
+    let allBlue = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16];
+    let poolB = [...new Set([...bEnt, ...allBlue])];
+    bCombo = poolB.slice(0, bCount).sort((a,b)=>a-b);
+  } else {
+    for(let i=0; i < history.length - 1; i++) {
+      for(let b of latest.b) {
+        if(history[i].b.includes(b)) {
+          for(let nB of history[i+1].b) blueMap.set(nB, (blueMap.get(nB)||0) + 1);
+        }
+      }
+    }
+    let bEnt = [...blueMap.entries()].sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
+    let allBack = [1,2,3,4,5,6,7,8,9,10,11,12];
+    let poolB = [...new Set([...bEnt, ...allBack])];
+    bCombo = poolB.slice(0, bCount).sort((a,b)=>a-b);
+  }
+
+  const priceInfo = calcAmount(rCount, bCount, type, isAppend);
+  const appendLabel = isAppend ? '<span style="color:red;font-size:12px;">(含追加)</span>' : '';
+
+  const resEl = document.getElementById(`custom-result-${type}`);
+  resEl.style.display = 'block';
+  resEl.innerHTML = `
+    <div class="custom-result-header">
+      <div style="font-weight:bold; color:#4a148c; font-size:15px;">
+        为您生成的 ${rCount}+${bCount} 复式 ${appendLabel}：
+        <span class="price-tag">${priceInfo.count}注 ${priceInfo.amount}元</span>
+      </div>
+      <button class="copy-btn" onclick="copyTicket(this, ${JSON.stringify(rCombo)}, ${JSON.stringify(bCombo)})">一键复制</button>
+    </div>
+    <div style="padding-top:5px;">
+      ${fmtBalls(rCombo, 'red')} <span style="margin:0 5px;font-weight:bold">+</span> ${fmtBalls(bCombo, 'blue')}
+    </div>
+  `;
+}
+
+window.onload = function() {
+  updateUI('ssq');
+  updateUI('dlt');
+};
+</script>
+</body>
+</html>
